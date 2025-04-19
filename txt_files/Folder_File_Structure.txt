@@ -1,0 +1,9 @@
+mcq_checker/
+│
+├── main.py                 # Streamlit or CLI app
+├── process_image.py        # All OpenCV logic
+├── answer_key.json         # Stores correct answers
+├── utils.py                # Helper functions
+├── test_images/            # Sample MCQ images
+├── results/                # Output result images / JSON
+├── requirements.txt

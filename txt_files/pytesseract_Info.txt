@@ -1,0 +1,12 @@
+pytesseract is just a Python wrapper — it sends commands to the actual Tesseract-OCR engine, which does the heavy lifting of recognizing text in images. Without the engine installed, pytesseract has nothing to connect to and will raise errors.
+
+On Windows:
+Download the installer from Tesseract Releases
+
+Run the installer.
+
+Add the install path (e.g., C:\Program Files\Tesseract-OCR) to your system PATH.
+
+In your Python code, you may need to specify the path like this:
+
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesserac
