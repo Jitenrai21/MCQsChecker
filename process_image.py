@@ -1,21 +1,30 @@
 import cv2 
 # To read image 
-img = cv2.imread(r"C:\Users\ACER\OneDrive\Desktop\MCQs_Checker_Prep\images\mcqs_paper.jpg", cv2.IMREAD_COLOR) 
+img = cv2.imread("images\mcqs_paper.jpg", cv2.IMREAD_COLOR) 
 
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
-ret, thresh = cv2.threshold(gray, 127, 255, 0) 
+
+# Better thresholding (Otsu)
+ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 # finding the contours 
 contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) 
   
-# take the first contour 
-count = contours[0]
+# Loop through contours and draw only circular ones (like bubbles)
+for cnt in contours:
+    area = cv2.contourArea(cnt)
+    if area < 500 or area > 3000:
+        continue  # Skip small or large noise
 
-(x_axis,y_axis),radius = cv2.minEnclosingCircle(count) 
+    perimeter = cv2.arcLength(cnt, True)
+    circularity = 4 * 3.14 * (area / (perimeter * perimeter + 1e-5))  # Add small number to avoid division by zero
+
+    if 0.7 < circularity < 1.2:  # Only circular shapes
+        (x, y), radius = cv2.minEnclosingCircle(cnt)
+        center = (int(x), int(y))
+        radius = int(radius)
+        cv2.circle(img, center, radius, (0, 255, 0), 2)
   
-center = (int(x_axis),int(y_axis)) 
-radius = int(radius) 
-  
-cv2.circle(img,center,radius,(0,255,0),2) 
-cv2.imshow("Image",img) 
-cv2.waitKey(0) 
+# Show result
+cv2.imshow("Detected Bubbles", img)
+cv2.waitKey(0)
 cv2.destroyAllWindows()
