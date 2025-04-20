@@ -1,5 +1,6 @@
 import cv2 
 import pytesseract
+import numpy as np
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 # To read image 
@@ -44,15 +45,14 @@ for i, (x, y, w, h) in enumerate(zones):
     question_img = answer_section[y:y+h, x:x+w]
     question_gray = cv2.cvtColor(question_img, cv2.COLOR_BGR2GRAY)
     
-    # Threshold to prepare for contour detection
-    _, thresh = cv2.threshold(question_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # Adaptive threshold for better handling of lighting
+    thresh = cv2.adaptiveThreshold(question_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                cv2.THRESH_BINARY_INV, 11, 2)
 
     # Detect contours in the question zone
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     bubble_info = []
-
-    import pytesseract
 
     for cnt in contours:
         area = cv2.contourArea(cnt)
@@ -60,51 +60,37 @@ for i, (x, y, w, h) in enumerate(zones):
             x_b, y_b, w_b, h_b = cv2.boundingRect(cnt)
             bubble_img = question_gray[y_b:y_b+h_b, x_b:x_b+w_b]
 
-            # OCR to read character inside the bubble
-            config = "--psm 10 -c tessedit_char_whitelist=ABCD"  # single char
-            letter = pytesseract.image_to_string(bubble_img, config=config).strip()
+            # Count number of black pixels inside the bubble
+            mask = cv2.drawContours(np.zeros_like(thresh), [cnt], -1, 255, -1)
+            filled_pixels = cv2.countNonZero(cv2.bitwise_and(thresh, thresh, mask=mask))
+            filled_ratio = filled_pixels / area
 
-            print(f"OCR result: '{letter}'")
-
-            if letter == "":
-                # If OCR didn't detect a letter → assume it’s marked
-                marked = True
-            else:
-                marked = False
-
-            bubble_info.append((x_b, y_b, marked, cnt))
+            # If filled ratio is higher than threshold, it's marked
+            marked = filled_ratio > 0.4  # You can tune this threshold
+            bubble_info.append((x_b, y_b, filled_ratio, cnt))
 
 
-    # Sort bubbles by x-position (left to right → A, B, C, D)
-    bubble_info.sort(key=lambda b: b[0])
+    # Sort bubbles by x-position (assuming left to right is A, B, C, D)
+    bubble_info.sort(key=lambda b: b[0])  # x_b position
 
-    # if bubble_info:
-    #     darkest = min(bubble_info, key=lambda b: b[2])
-    #     selected_index = bubble_info.index(darkest)
-    #     selected_option = chr(65 + selected_index)  # A, B, C, D
-    #     answers.append(selected_option)
-    # else:
-    #     answers.append("Unmarked")  # or "X", "-", etc.
+    # Threshold to decide if marked
+    marked_threshold = 0.4
+    marked_bubbles = [(i, b) for i, b in enumerate(bubble_info) if b[2] > marked_threshold]
 
-    # Filter only marked bubbles
-    marked_bubbles = [b for b in bubble_info if b[2] is True]
-
-    if marked_bubbles:
-        # If only one marked → select it
-        selected_index = bubble_info.index(marked_bubbles[0])
-        selected_option = chr(65 + selected_index)
-        answers.append(selected_option)
+    if len(marked_bubbles) == 1:
+        selected_option = chr(65 + marked_bubbles[0][0])
+    elif len(marked_bubbles) > 1:
+        # If multiple marked, pick the one with highest fill ratio
+        best = max(marked_bubbles, key=lambda b: b[1][2])
+        selected_option = chr(65 + best[0])
     else:
-        answers.append("Unmarked")
+        selected_option = "Unmarked"
 
+    answers.append(selected_option)
 
     # Draw all detected bubbles in green
     for bx, by, _, cnt in bubble_info:
         cv2.rectangle(answer_section, (x + bx, y + by), (x + bx + w_b, y + by + h_b), (0, 255, 0), 1)
-
-    # # Highlight selected bubble in blue
-    # bx, by, _, cnt = darkest
-    # cv2.rectangle(answer_section, (x + bx, y + by), (x + bx + w_b, y + by + h_b), (255, 0, 0), 2)
 
     # Write selected option A/B/C/D
     cv2.putText(answer_section, f"Q{i+1}: {selected_option}", (x + 10, y + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), 1)
@@ -112,4 +98,4 @@ for i, (x, y, w, h) in enumerate(zones):
 cv2.imshow("Contours on Answer Section", answer_section)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
-# cv2.imwrite('test.jpg', answer_section)
+cv2.imwrite('test.jpg', answer_section)

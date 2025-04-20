@@ -10,3 +10,5 @@ Add the install path (e.g., C:\Program Files\Tesseract-OCR) to your system PATH.
 In your Python code, you may need to specify the path like this:
 
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+.\env\Scripts\python.exe -m pip install pytesseract
