@@ -1,30 +1,115 @@
 import cv2 
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
 # To read image 
-img = cv2.imread("images\mcqs_paper.jpg", cv2.IMREAD_COLOR) 
+img = cv2.imread("images/mcqs_paper_Filled.jpg", cv2.IMREAD_COLOR) 
 
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
 
-# Better thresholding (Otsu)
-ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-# finding the contours 
-contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) 
-  
-# Loop through contours and draw only circular ones (like bubbles)
-for cnt in contours:
-    area = cv2.contourArea(cnt)
-    if area < 500 or area > 3000:
-        continue  # Skip small or large noise
+height, width = img.shape[:2]
 
-    perimeter = cv2.arcLength(cnt, True)
-    circularity = 4 * 3.14 * (area / (perimeter * perimeter + 1e-5))  # Add small number to avoid division by zero
+# Define margins manually (tune these values as needed)
+top_margin = 120      # pixels to skip header
+bottom_margin = 160   # pixels to skip footer
+left = 0
+right = width
 
-    if 0.7 < circularity < 1.2:  # Only circular shapes
-        (x, y), radius = cv2.minEnclosingCircle(cnt)
-        center = (int(x), int(y))
-        radius = int(radius)
-        cv2.circle(img, center, radius, (0, 255, 0), 2)
-  
-# Show result
-cv2.imshow("Detected Bubbles", img)
+# Crop answer section only
+answer_section = img[top_margin:height - bottom_margin, left:right]
+answer_height, answer_width = answer_section.shape[:2]
+
+# Grid dimensions
+questions_per_col = 15
+col_width = answer_width // 2
+row_height = answer_height // questions_per_col
+
+zones = []
+
+for col in range(2):  # Left and right column
+    for row in range(questions_per_col):
+        x = col * col_width
+        y = row * row_height
+        w = col_width
+        h = row_height
+
+        zones.append((x, y, w, h))
+
+        # Draw rectangle on answer_section (not the original img)
+        cv2.rectangle(answer_section, (x, y), (x + w, y + h), (0, 0, 255), 1) #(image, start_point, end_point, color, thickness)
+
+answers = []
+
+for i, (x, y, w, h) in enumerate(zones):
+    question_img = answer_section[y:y+h, x:x+w]
+    question_gray = cv2.cvtColor(question_img, cv2.COLOR_BGR2GRAY)
+    
+    # Threshold to prepare for contour detection
+    _, thresh = cv2.threshold(question_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    # Detect contours in the question zone
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    bubble_info = []
+
+    import pytesseract
+
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if 500 < area < 2000:
+            x_b, y_b, w_b, h_b = cv2.boundingRect(cnt)
+            bubble_img = question_gray[y_b:y_b+h_b, x_b:x_b+w_b]
+
+            # OCR to read character inside the bubble
+            config = "--psm 10 -c tessedit_char_whitelist=ABCD"  # single char
+            letter = pytesseract.image_to_string(bubble_img, config=config).strip()
+
+            print(f"OCR result: '{letter}'")
+
+            if letter == "":
+                # If OCR didn't detect a letter → assume it’s marked
+                marked = True
+            else:
+                marked = False
+
+            bubble_info.append((x_b, y_b, marked, cnt))
+
+
+    # Sort bubbles by x-position (left to right → A, B, C, D)
+    bubble_info.sort(key=lambda b: b[0])
+
+    # if bubble_info:
+    #     darkest = min(bubble_info, key=lambda b: b[2])
+    #     selected_index = bubble_info.index(darkest)
+    #     selected_option = chr(65 + selected_index)  # A, B, C, D
+    #     answers.append(selected_option)
+    # else:
+    #     answers.append("Unmarked")  # or "X", "-", etc.
+
+    # Filter only marked bubbles
+    marked_bubbles = [b for b in bubble_info if b[2] is True]
+
+    if marked_bubbles:
+        # If only one marked → select it
+        selected_index = bubble_info.index(marked_bubbles[0])
+        selected_option = chr(65 + selected_index)
+        answers.append(selected_option)
+    else:
+        answers.append("Unmarked")
+
+
+    # Draw all detected bubbles in green
+    for bx, by, _, cnt in bubble_info:
+        cv2.rectangle(answer_section, (x + bx, y + by), (x + bx + w_b, y + by + h_b), (0, 255, 0), 1)
+
+    # # Highlight selected bubble in blue
+    # bx, by, _, cnt = darkest
+    # cv2.rectangle(answer_section, (x + bx, y + by), (x + bx + w_b, y + by + h_b), (255, 0, 0), 2)
+
+    # Write selected option A/B/C/D
+    cv2.putText(answer_section, f"Q{i+1}: {selected_option}", (x + 10, y + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), 1)
+
+cv2.imshow("Contours on Answer Section", answer_section)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+# cv2.imwrite('test.jpg', answer_section)

@@ -1,0 +1,39 @@
+Workflow Overview
+Step-by-Step Process
+1. Preprocessing the Image
+Convert to grayscale
+
+Apply Gaussian blur (to remove noise) ---> Not Included.
+
+Use adaptive threshold or binary threshold
+
+Detect edges using Canny edge detection
+
+2. Detect Paper/Contours
+Find the largest rectangular contour (outer border of the MCQ sheet)
+
+Apply perspective transform to warp it into a top-down view
+
+3. Segment Answer Bubbles
+Divide the image into predefined grid zones (based on number of questions)
+
+For each question row, segment the 4 options (A to D)
+
+Apply threshold + count non-zero pixels (or use circle detection) to identify the darkest (filled) bubble
+
+4. Compare with Answer Key
+Store correct answers in a list/dictionary
+
+Compare detected responses with correct answers
+
+Compute the score
+
+5. (Optional) Extract Info
+OCR the top fields (Name, ID, etc.) using pytesseract (optional if you want automation there too)
+
+6. Display Results
+Show individual question feedback
+
+Final score
+
+Optional: Highlight correct/incorrect bubbles in color
