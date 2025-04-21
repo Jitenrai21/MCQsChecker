@@ -1,7 +1,8 @@
 import cv2 
-import pytesseract
+# import pytesseract
 import numpy as np
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+# pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+import json
 
 # To read image 
 img = cv2.imread("images/mcqs_paper_Filled.jpg", cv2.IMREAD_COLOR) 
@@ -95,7 +96,30 @@ for i, (x, y, w, h) in enumerate(zones):
     # Write selected option A/B/C/D
     cv2.putText(answer_section, f"Q{i+1}: {selected_option}", (x + 10, y + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), 1)
 
-cv2.imshow("Contours on Answer Section", answer_section)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-cv2.imwrite('test.jpg', answer_section)
+# cv2.imshow("Contours on Answer Section", answer_section)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
+
+# Load the answer key from JSON file
+with open("answer_key.json", "r") as f:
+    answer_key = json.load(f)["answers"]
+
+# Compare and generate result
+correct = 0
+result_summary = {}
+
+for idx, student_answer in enumerate(answers):
+    q_key = f"Q{idx + 1}"
+    correct_answer = answer_key.get(q_key, "N/A")
+    is_correct = student_answer == correct_answer
+    result_summary[q_key] = {
+        "StudentAnswer": student_answer,
+        "CorrectAnswer": correct_answer,
+        "IsCorrect": is_correct
+    }
+    if is_correct:
+        correct += 1
+
+# Print results
+# print(json.dumps(result_summary, indent=4))
+# print(f"\nTotal Correct: {correct}/{len(answers)}")

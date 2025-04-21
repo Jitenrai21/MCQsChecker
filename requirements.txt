@@ -1,2 +1,4 @@
 opencv-python
-pytesseract #OCR
+numpy
+pytesseract
+streamlit
