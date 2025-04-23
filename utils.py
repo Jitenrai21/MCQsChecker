@@ -26,39 +26,56 @@ def divide_into_zones(answer_section, questions_per_col=15):
 
 def detect_answers(answer_section, zones):
     answers = []
+    
+    # Iterate over each zone (each question's region)
     for i, (x, y, w, h) in enumerate(zones):
+        # Crop the individual question region from the answer section
         question_img = answer_section[y:y+h, x:x+w]
+        
+        # Convert the cropped image to grayscale
         question_gray = cv2.cvtColor(question_img, cv2.COLOR_BGR2GRAY)
+        
+        # Apply adaptive thresholding to highlight filled bubbles
         thresh = cv2.adaptiveThreshold(question_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                        cv2.THRESH_BINARY_INV, 11, 2)
 
+        # Detect contours (possible bubbles)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         bubble_info = []
 
+        # Filter and analyze contours to identify valid bubbles
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if 500 < area < 2000:
+            if 500 < area < 2000:  # Area threshold to remove noise
                 x_b, y_b, w_b, h_b = cv2.boundingRect(cnt)
+                
+                # Create a mask for the bubble and calculate how much it's filled
                 mask = np.zeros_like(thresh)
                 cv2.drawContours(mask, [cnt], -1, 255, -1)
                 filled_pixels = cv2.countNonZero(cv2.bitwise_and(thresh, thresh, mask=mask))
-                filled_ratio = filled_pixels / area
+                filled_ratio = filled_pixels / area  # Ratio of filled area
+                
+                # Store bubble info: x-position, y-position, filled ratio, contour
                 bubble_info.append((x_b, y_b, filled_ratio, cnt))
 
+        # Sort bubbles left to right to align with A, B, C, D...
         bubble_info.sort(key=lambda b: b[0])
-        # Count how many bubbles are considered marked
+
+        # Identify which bubbles are filled (above threshold)
         marked_indices = [i for i, b in enumerate(bubble_info) if b[2] > 0.4]
 
+        # Decision logic based on number of marked bubbles
         if len(marked_indices) == 1:
-            selected_option = chr(65 + marked_indices[0])  # A/B/C/D
+            selected_option = chr(65 + marked_indices[0]) #chr(65) in Python returns the character 'A' 
         elif len(marked_indices) > 1:
-            selected_option = "Multiple Selected"
+            selected_option = "Multiple Selected"  # More than one bubble filled
         else:
-            selected_option = "Unmarked"
+            selected_option = "Unmarked"  # No bubble filled
 
+        # Append the determined answer to the result list
         answers.append(selected_option)
-    return answers
 
+    return answers
 
 def load_answer_key(json_path="answer_key.json"):
     with open(json_path, "r") as f:
