@@ -39,25 +39,26 @@ def detect_answers(answer_section, zones):
             area = cv2.contourArea(cnt)
             if 500 < area < 2000:
                 x_b, y_b, w_b, h_b = cv2.boundingRect(cnt)
-                mask = cv2.drawContours(np.zeros_like(thresh), [cnt], -1, 255, -1)
+                mask = np.zeros_like(thresh)
+                cv2.drawContours(mask, [cnt], -1, 255, -1)
                 filled_pixels = cv2.countNonZero(cv2.bitwise_and(thresh, thresh, mask=mask))
                 filled_ratio = filled_pixels / area
-                marked = filled_ratio > 0.4
                 bubble_info.append((x_b, y_b, filled_ratio, cnt))
 
         bubble_info.sort(key=lambda b: b[0])
-        marked_bubbles = [(i, b) for i, b in enumerate(bubble_info) if b[2] > 0.4]
+        # Count how many bubbles are considered marked
+        marked_indices = [i for i, b in enumerate(bubble_info) if b[2] > 0.4]
 
-        if len(marked_bubbles) == 1:
-            selected_option = chr(65 + marked_bubbles[0][0])
-        elif len(marked_bubbles) > 1:
-            best = max(marked_bubbles, key=lambda b: b[1][2])
-            selected_option = chr(65 + best[0])
+        if len(marked_indices) == 1:
+            selected_option = chr(65 + marked_indices[0])  # A/B/C/D
+        elif len(marked_indices) > 1:
+            selected_option = "Multiple Selected"
         else:
             selected_option = "Unmarked"
 
         answers.append(selected_option)
     return answers
+
 
 def load_answer_key(json_path="answer_key.json"):
     with open(json_path, "r") as f:
