@@ -26,7 +26,7 @@ The MCQ Paper Grader is a web-based application that automates the grading of mu
 ⚙️ Installation
 
 Clone the Repository 📂:
-git clone https://github.com/your-username/mcq-paper-grader.git
+git clone https://github.com/Jitenrai21/MCQsChecker
 cd mcq-paper-grader
 
 
